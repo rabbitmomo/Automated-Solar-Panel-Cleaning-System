@@ -112,7 +112,6 @@ const featureCards = [
 export default function Home() {
   const [panel, setPanel] = useState<PanelState>(INITIAL_PANEL);
   const [isDemoRunning, setIsDemoRunning] = useState(false);
-  const [isCleaningCycleRunning, setIsCleaningCycleRunning] = useState(false);
   const [demoStatus, setDemoStatus] = useState('Ready');
   const [activeStep, setActiveStep] = useState<FeatureStep>(1);
   const demoTimersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
@@ -139,21 +138,6 @@ export default function Home() {
     { id: 2, type: 'Sensor drift', severity: 'Low', date: '5 days ago', action: 'Calibration pending' },
   ]);
 
-  const [solarEnergyHistory] = useState([
-    { day: 'Mon', generated: 412, expected: 430, health: 96 },
-    { day: 'Tue', generated: 438, expected: 435, health: 99 },
-    { day: 'Wed', generated: 401, expected: 428, health: 93 },
-    { day: 'Thu', generated: 389, expected: 420, health: 91 },
-    { day: 'Fri', generated: 446, expected: 438, health: 101 },
-    { day: 'Sat', generated: 455, expected: 442, health: 103 },
-    { day: 'Sun', generated: 429, expected: 440, health: 97 },
-  ]);
-
-  const [cleaningEvents, setCleaningEvents] = useState([
-    { id: 1, time: '09:40 AM', trigger: 'Dust > 12%', result: 'Cycle completed', delta: '-6% dust' },
-    { id: 2, time: '06:20 AM', trigger: 'Signal anomaly', result: 'Recalibrated', delta: '+4% health' },
-  ]);
-
   const [operationStats, setOperationStats] = useState({
     totalCleanings: 124000,
     avgDuration: '48ms',
@@ -165,41 +149,6 @@ export default function Home() {
   const clearDemoTimers = () => {
     demoTimersRef.current.forEach(clearTimeout);
     demoTimersRef.current = [];
-  };
-
-  const runCleaningCycle = () => {
-    if (isCleaningCycleRunning) {
-      return;
-    }
-
-    setIsCleaningCycleRunning(true);
-    setDemoStatus('Cleaning cycle triggered by dirty sensor detection');
-
-    demoTimersRef.current.push(
-      setTimeout(() => {
-        setPanel(prev => ({
-          ...prev,
-          dustLevel: Math.max(2, prev.dustLevel - 7),
-          coverage: Math.min(99, prev.coverage + 2),
-          efficiency: Math.min(98, prev.efficiency + 3),
-          sensorConfidence: Math.min(99, prev.sensorConfidence + 1),
-        }));
-
-        setCleaningEvents(prev => [
-          {
-            id: prev.length + 1,
-            time: new Date().toLocaleTimeString(),
-            trigger: 'Dirty sensor detected',
-            result: 'Auto cleaning started',
-            delta: 'Dust reduced',
-          },
-          ...prev.slice(0, 3),
-        ]);
-
-        setDemoStatus('Cleaning cycle completed');
-        setIsCleaningCycleRunning(false);
-      }, 1800),
-    );
   };
 
   useEffect(() => {
@@ -301,30 +250,6 @@ export default function Home() {
     { name: 'Gateway Uptime', value: panel.scadaIntegration },
   ];
 
-  const aiHealthStatus = panel.dustLevel >= 12 || panel.sensorConfidence < 95 || panel.efficiency < panel.threshold ? 'Non-Healthy' : 'Healthy';
-  const aiHealthReasons = [
-    panel.dustLevel >= 12 ? `Sensor dirt is high at ${panel.dustLevel} dB, which lowers usable output.` : null,
-    panel.sensorConfidence < 95 ? `Confidence dropped to ${panel.sensorConfidence}%, so readings are less reliable.` : null,
-    panel.efficiency < panel.threshold ? `Signal health at ${panel.efficiency}% is under the ${panel.threshold}% threshold.` : null,
-  ].filter((reason): reason is string => reason !== null);
-
-  const solarTrendStatus = solarEnergyHistory[solarEnergyHistory.length - 1].generated >= solarEnergyHistory[solarEnergyHistory.length - 1].expected ? 'Above expected' : 'Below expected';
-  const recentSolarAverage = Math.round(
-    solarEnergyHistory.slice(-3).reduce((sum, point) => sum + point.generated, 0) / 3,
-  );
-  const recentExpectedAverage = Math.round(
-    solarEnergyHistory.slice(-3).reduce((sum, point) => sum + point.expected, 0) / 3,
-  );
-  const recentDirtyEvent = cleaningEvents.find(event => event.trigger.toLowerCase().includes('dirty'));
-  const shouldInitiateWaterCycle = recentSolarAverage < recentExpectedAverage || panel.dustLevel >= 12 || Boolean(recentDirtyEvent);
-  const waterCycleReasons = [
-    recentSolarAverage < recentExpectedAverage
-      ? `Last 3 days generated ${recentExpectedAverage - recentSolarAverage} kWh less than expected on average.`
-      : null,
-    panel.dustLevel >= 12 ? `Dust is at ${panel.dustLevel} dB, which can block panel output and sensor reads.` : null,
-    recentDirtyEvent ? `Recent history already shows a dirty sensor trigger at ${recentDirtyEvent.time}.` : null,
-  ].filter((reason): reason is string => reason !== null);
-
   const COLORS = ['#3b82f6', '#1e40af', '#1e3a8a'];
 
   return (
@@ -333,10 +258,10 @@ export default function Home() {
         {/* Header */}
         <div className="rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
           <h1 className="mb-1 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
-            Solar Sensor Intelligence Dashboard
+            Smart Fluid Distribution Panel
           </h1>
           <p className="text-sm text-slate-600 sm:text-base">
-            Live solar generation, sensor health history, and AI analysis in one frontend demo.
+            Curved-flow cleaning system with AI monitoring and predictive maintenance.
           </p>
         </div>
 
@@ -387,74 +312,6 @@ export default function Home() {
                 <Bar dataKey="coverage" name="Sensor Coverage" fill="#3b82f6" />
               </BarChart>
             </ResponsiveContainer>
-          </div>
-        </div>
-
-        <div className="grid gap-6 lg:grid-cols-2">
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="mb-4 flex items-end justify-between gap-3">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Machine learning history</p>
-                <h2 className="text-lg font-semibold text-slate-900">Solar Energy Generated</h2>
-              </div>
-              <p className="text-sm text-slate-600">{solarTrendStatus}</p>
-            </div>
-            <ResponsiveContainer width="100%" height={260}>
-              <LineChart data={solarEnergyHistory}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="day" stroke="#64748b" />
-                <YAxis stroke="#64748b" />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#f1f5f9', border: '1px solid #cbd5e1' }}
-                  labelStyle={{ color: '#1e293b' }}
-                />
-                <Legend />
-                <Line type="monotone" dataKey="generated" name="Generated kWh" stroke="#2563eb" strokeWidth={2} dot={{ fill: '#2563eb' }} />
-                <Line type="monotone" dataKey="expected" name="Expected kWh" stroke="#0f172a" strokeDasharray="5 5" strokeWidth={2} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="mb-4 flex items-end justify-between gap-3">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">AI health analysis</p>
-                <h2 className="text-lg font-semibold text-slate-900">Healthy or Non-Healthy</h2>
-              </div>
-              <span className={`rounded-full px-3 py-1 text-xs font-semibold ${aiHealthStatus === 'Healthy' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
-                {aiHealthStatus}
-              </span>
-            </div>
-
-            <div className="space-y-3">
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-slate-600">AI verdict</span>
-                  <span className="text-lg font-semibold text-slate-900">{aiHealthStatus}</span>
-                </div>
-                <p className="mt-2 text-sm text-slate-600">
-                  The model compares solar output, sensor drift, confidence, and dust level against the normal operating band.
-                </p>
-              </div>
-
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                <p className="text-sm font-medium text-slate-600">Why</p>
-                <ul className="mt-2 space-y-2 text-sm text-slate-700">
-                  {aiHealthReasons.length > 0 ? aiHealthReasons.map(reason => <li key={reason}>• {reason}</li>) : <li>• Output, drift, and confidence all remain within the normal range.</li>}
-                </ul>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-xs font-medium text-slate-500">Generated today</p>
-                  <p className="mt-1 text-2xl font-semibold text-slate-900">{solarEnergyHistory[solarEnergyHistory.length - 1].generated} kWh</p>
-                </div>
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-xs font-medium text-slate-500">Expected today</p>
-                  <p className="mt-1 text-2xl font-semibold text-slate-900">{solarEnergyHistory[solarEnergyHistory.length - 1].expected} kWh</p>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -740,7 +597,7 @@ export default function Home() {
                 <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
                   <span>0°</span>
                   <div className="relative h-10 flex-1 overflow-hidden rounded-full border border-slate-200 bg-white">
-                    <div className="absolute inset-0 bg-linear-to-r from-slate-200 via-blue-100 to-slate-200 opacity-90" />
+                    <div className="absolute inset-0 bg-gradient-to-r from-slate-200 via-blue-100 to-slate-200 opacity-90" />
                     <div
                       className="absolute left-0 top-1/2 h-px w-full -translate-y-1/2 bg-blue-700"
                       style={{ transform: `translateY(-50%) rotate(${Math.min(90, panel.flowAngle)}deg)` }}
@@ -778,99 +635,13 @@ export default function Home() {
                 <p className="text-xs font-medium text-slate-500">Device health</p>
                 <p className="mt-1 text-sm font-semibold text-slate-900">{panel.lifespanIndex}%</p>
               </div>
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                <p className="text-xs font-medium text-slate-500">Water cycle recommendation</p>
-                <p className={`mt-1 text-sm font-semibold ${shouldInitiateWaterCycle ? 'text-rose-700' : 'text-emerald-700'}`}>
-                  {shouldInitiateWaterCycle ? 'Initiate water cycle' : 'No water cycle needed'}
-                </p>
-                <p className="mt-1 text-xs text-slate-500">
-                  {shouldInitiateWaterCycle ? 'History shows a dirty pattern or low generation.' : 'History stays within the normal range.'}
-                </p>
-              </div>
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                <p className="text-xs font-medium text-slate-500">Dirty sensor detection</p>
-                <p className="mt-1 text-sm font-semibold text-slate-900">{panel.dustLevel >= 12 ? 'Cleaning required' : 'Normal'}</p>
-              </div>
-              <button
-                onClick={runCleaningCycle}
-                disabled={isCleaningCycleRunning}
-                className="w-full rounded-lg border border-blue-700 bg-blue-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-              >
-                {isCleaningCycleRunning ? 'Water cycle running...' : 'Initiate Water Cycle'}
-              </button>
             </div>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-4 flex items-end justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">History-based decision</p>
-              <h2 className="text-lg font-semibold text-slate-900">Water Cycle Analysis</h2>
-            </div>
-            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${shouldInitiateWaterCycle ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
-              {shouldInitiateWaterCycle ? 'Yes, trigger now' : 'No trigger needed'}
-            </span>
-          </div>
-          <div className="grid gap-3 lg:grid-cols-3">
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-medium text-slate-500">3-day solar average</p>
-              <p className="mt-1 text-2xl font-semibold text-slate-900">{recentSolarAverage} kWh</p>
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-medium text-slate-500">3-day expected average</p>
-              <p className="mt-1 text-2xl font-semibold text-slate-900">{recentExpectedAverage} kWh</p>
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-medium text-slate-500">Reason summary</p>
-              <p className="mt-1 text-sm font-semibold text-slate-900">
-                {shouldInitiateWaterCycle ? 'History shows lower generation and dirty-sensor patterns.' : 'History is stable, so water cycle can wait.'}
-              </p>
-            </div>
-          </div>
-          <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
-            <p className="text-sm font-medium text-slate-600">Why the model decided this</p>
-            <ul className="mt-2 space-y-2 text-sm text-slate-700">
-              {waterCycleReasons.length > 0 ? waterCycleReasons.map(reason => <li key={reason}>• {reason}</li>) : <li>• History does not currently show a dirty or underperforming pattern.</li>}
-            </ul>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-4 flex items-end justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Cleaning history</p>
-              <h2 className="text-lg font-semibold text-slate-900">Dirty Sensor Triggers and Recovery</h2>
-            </div>
-            <p className="text-sm text-slate-600">Auto-clean cycles triggered by anomalies</p>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-200">
-                  <th className="px-4 py-3 text-left font-semibold text-slate-600">Time</th>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-600">Trigger</th>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-600">Result</th>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-600">Delta</th>
-                </tr>
-              </thead>
-              <tbody>
-                {cleaningEvents.map((event) => (
-                  <tr key={event.id} className="border-b border-slate-100">
-                    <td className="px-4 py-3 font-medium text-slate-900">{event.time}</td>
-                    <td className="px-4 py-3 text-slate-600">{event.trigger}</td>
-                    <td className="px-4 py-3 text-slate-600">{event.result}</td>
-                    <td className="px-4 py-3 font-semibold text-slate-900">{event.delta}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
         </div>
 
         {/* Footer */}
         <div className="pb-4 text-center text-xs text-slate-500 sm:text-sm">
-          <p>Frontend-only demo | One button flow | Solar and sensor intelligence dashboard</p>
+          <p>Frontend-only demo | One button flow | Sensor monitoring dashboard</p>
         </div>
       </div>
     </main>

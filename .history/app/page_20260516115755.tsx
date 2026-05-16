@@ -112,7 +112,6 @@ const featureCards = [
 export default function Home() {
   const [panel, setPanel] = useState<PanelState>(INITIAL_PANEL);
   const [isDemoRunning, setIsDemoRunning] = useState(false);
-  const [isCleaningCycleRunning, setIsCleaningCycleRunning] = useState(false);
   const [demoStatus, setDemoStatus] = useState('Ready');
   const [activeStep, setActiveStep] = useState<FeatureStep>(1);
   const demoTimersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
@@ -139,21 +138,6 @@ export default function Home() {
     { id: 2, type: 'Sensor drift', severity: 'Low', date: '5 days ago', action: 'Calibration pending' },
   ]);
 
-  const [solarEnergyHistory] = useState([
-    { day: 'Mon', generated: 412, expected: 430, health: 96 },
-    { day: 'Tue', generated: 438, expected: 435, health: 99 },
-    { day: 'Wed', generated: 401, expected: 428, health: 93 },
-    { day: 'Thu', generated: 389, expected: 420, health: 91 },
-    { day: 'Fri', generated: 446, expected: 438, health: 101 },
-    { day: 'Sat', generated: 455, expected: 442, health: 103 },
-    { day: 'Sun', generated: 429, expected: 440, health: 97 },
-  ]);
-
-  const [cleaningEvents, setCleaningEvents] = useState([
-    { id: 1, time: '09:40 AM', trigger: 'Dust > 12%', result: 'Cycle completed', delta: '-6% dust' },
-    { id: 2, time: '06:20 AM', trigger: 'Signal anomaly', result: 'Recalibrated', delta: '+4% health' },
-  ]);
-
   const [operationStats, setOperationStats] = useState({
     totalCleanings: 124000,
     avgDuration: '48ms',
@@ -165,41 +149,6 @@ export default function Home() {
   const clearDemoTimers = () => {
     demoTimersRef.current.forEach(clearTimeout);
     demoTimersRef.current = [];
-  };
-
-  const runCleaningCycle = () => {
-    if (isCleaningCycleRunning) {
-      return;
-    }
-
-    setIsCleaningCycleRunning(true);
-    setDemoStatus('Cleaning cycle triggered by dirty sensor detection');
-
-    demoTimersRef.current.push(
-      setTimeout(() => {
-        setPanel(prev => ({
-          ...prev,
-          dustLevel: Math.max(2, prev.dustLevel - 7),
-          coverage: Math.min(99, prev.coverage + 2),
-          efficiency: Math.min(98, prev.efficiency + 3),
-          sensorConfidence: Math.min(99, prev.sensorConfidence + 1),
-        }));
-
-        setCleaningEvents(prev => [
-          {
-            id: prev.length + 1,
-            time: new Date().toLocaleTimeString(),
-            trigger: 'Dirty sensor detected',
-            result: 'Auto cleaning started',
-            delta: 'Dust reduced',
-          },
-          ...prev.slice(0, 3),
-        ]);
-
-        setDemoStatus('Cleaning cycle completed');
-        setIsCleaningCycleRunning(false);
-      }, 1800),
-    );
   };
 
   useEffect(() => {
@@ -281,49 +230,25 @@ export default function Home() {
 
   // Chart data generation
   const efficiencyTrendData = [
-    { time: '0h', efficiency: 94, threshold: 78 },
-    { time: '2h', efficiency: 92, threshold: 78 },
-    { time: '4h', efficiency: 88, threshold: 78 },
-    { time: '6h', efficiency: 84, threshold: 78 },
-    { time: '8h', efficiency: panel.efficiency, threshold: 78 },
-    { time: '10h', efficiency: Math.max(90, panel.efficiency + 4), threshold: 78 },
+    { time: '0h', efficiency: 91, threshold: 75 },
+    { time: '2h', efficiency: 88, threshold: 75 },
+    { time: '4h', efficiency: 82, threshold: 75 },
+    { time: '6h', efficiency: 72, threshold: 75 },
+    { time: '8h', efficiency: panel.efficiency, threshold: 75 },
+    { time: '10h', efficiency: Math.max(85, panel.efficiency + 5), threshold: 75 },
   ];
 
   const dustCycleData = [
-    { phase: 'Baseline', dust: panel.dustLevel, coverage: panel.coverage },
-    { phase: 'Calibration', dust: Math.max(2, panel.dustLevel - 4), coverage: Math.max(90, panel.coverage - 1) },
-    { phase: 'Stable', dust: 4, coverage: 99 },
+    { phase: 'Initial', dust: panel.dustLevel, coverage: panel.coverage },
+    { phase: 'Cleaning', dust: Math.max(2, panel.dustLevel - 10), coverage: Math.max(85, panel.coverage - 5) },
+    { phase: 'Post-Clean', dust: 5, coverage: 96 },
   ];
 
   const systemHealthData = [
-    { name: 'Signal Health', value: panel.efficiency },
-    { name: 'Battery Health', value: panel.lifespanIndex },
-    { name: 'Gateway Uptime', value: panel.scadaIntegration },
+    { name: 'Efficiency', value: panel.efficiency },
+    { name: 'Lifespan', value: panel.lifespanIndex },
+    { name: 'Sensor', value: panel.sensorConfidence },
   ];
-
-  const aiHealthStatus = panel.dustLevel >= 12 || panel.sensorConfidence < 95 || panel.efficiency < panel.threshold ? 'Non-Healthy' : 'Healthy';
-  const aiHealthReasons = [
-    panel.dustLevel >= 12 ? `Sensor dirt is high at ${panel.dustLevel} dB, which lowers usable output.` : null,
-    panel.sensorConfidence < 95 ? `Confidence dropped to ${panel.sensorConfidence}%, so readings are less reliable.` : null,
-    panel.efficiency < panel.threshold ? `Signal health at ${panel.efficiency}% is under the ${panel.threshold}% threshold.` : null,
-  ].filter((reason): reason is string => reason !== null);
-
-  const solarTrendStatus = solarEnergyHistory[solarEnergyHistory.length - 1].generated >= solarEnergyHistory[solarEnergyHistory.length - 1].expected ? 'Above expected' : 'Below expected';
-  const recentSolarAverage = Math.round(
-    solarEnergyHistory.slice(-3).reduce((sum, point) => sum + point.generated, 0) / 3,
-  );
-  const recentExpectedAverage = Math.round(
-    solarEnergyHistory.slice(-3).reduce((sum, point) => sum + point.expected, 0) / 3,
-  );
-  const recentDirtyEvent = cleaningEvents.find(event => event.trigger.toLowerCase().includes('dirty'));
-  const shouldInitiateWaterCycle = recentSolarAverage < recentExpectedAverage || panel.dustLevel >= 12 || Boolean(recentDirtyEvent);
-  const waterCycleReasons = [
-    recentSolarAverage < recentExpectedAverage
-      ? `Last 3 days generated ${recentExpectedAverage - recentSolarAverage} kWh less than expected on average.`
-      : null,
-    panel.dustLevel >= 12 ? `Dust is at ${panel.dustLevel} dB, which can block panel output and sensor reads.` : null,
-    recentDirtyEvent ? `Recent history already shows a dirty sensor trigger at ${recentDirtyEvent.time}.` : null,
-  ].filter((reason): reason is string => reason !== null);
 
   const COLORS = ['#3b82f6', '#1e40af', '#1e3a8a'];
 
@@ -333,10 +258,10 @@ export default function Home() {
         {/* Header */}
         <div className="rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
           <h1 className="mb-1 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
-            Solar Sensor Intelligence Dashboard
+            Smart Fluid Distribution Panel
           </h1>
           <p className="text-sm text-slate-600 sm:text-base">
-            Live solar generation, sensor health history, and AI analysis in one frontend demo.
+            Curved-flow cleaning system with AI monitoring and predictive maintenance.
           </p>
         </div>
 
@@ -353,7 +278,7 @@ export default function Home() {
         {/* Charts Section - Efficiency Trend */}
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="mb-4 text-lg font-semibold text-slate-900">Sensor Signal Trend & Threshold</h2>
+            <h2 className="mb-4 text-lg font-semibold text-slate-900">Efficiency Trend & Threshold</h2>
             <ResponsiveContainer width="100%" height={250}>
               <LineChart data={efficiencyTrendData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -364,15 +289,15 @@ export default function Home() {
                   labelStyle={{ color: '#1e293b' }}
                 />
                 <Legend />
-                <Line type="monotone" dataKey="efficiency" name="Signal Health" stroke="#3b82f6" strokeWidth={2} dot={{ fill: '#3b82f6' }} />
-                <Line type="monotone" dataKey="threshold" name="Alert Threshold" stroke="#e11d48" strokeDasharray="5 5" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="efficiency" stroke="#3b82f6" strokeWidth={2} dot={{ fill: '#3b82f6' }} />
+                <Line type="monotone" dataKey="threshold" stroke="#e11d48" strokeDasharray="5 5" strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           </div>
 
           {/* Dust Cleaning Cycle */}
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="mb-4 text-lg font-semibold text-slate-900">Sensor Noise & Coverage Cycle</h2>
+            <h2 className="mb-4 text-lg font-semibold text-slate-900">Dust & Coverage Cycle</h2>
             <ResponsiveContainer width="100%" height={250}>
               <BarChart data={dustCycleData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -383,105 +308,37 @@ export default function Home() {
                   labelStyle={{ color: '#1e293b' }}
                 />
                 <Legend />
-                <Bar dataKey="dust" name="Noise Floor" fill="#f97316" />
-                <Bar dataKey="coverage" name="Sensor Coverage" fill="#3b82f6" />
+                <Bar dataKey="dust" fill="#f97316" />
+                <Bar dataKey="coverage" fill="#3b82f6" />
               </BarChart>
             </ResponsiveContainer>
-          </div>
-        </div>
-
-        <div className="grid gap-6 lg:grid-cols-2">
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="mb-4 flex items-end justify-between gap-3">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Machine learning history</p>
-                <h2 className="text-lg font-semibold text-slate-900">Solar Energy Generated</h2>
-              </div>
-              <p className="text-sm text-slate-600">{solarTrendStatus}</p>
-            </div>
-            <ResponsiveContainer width="100%" height={260}>
-              <LineChart data={solarEnergyHistory}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="day" stroke="#64748b" />
-                <YAxis stroke="#64748b" />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#f1f5f9', border: '1px solid #cbd5e1' }}
-                  labelStyle={{ color: '#1e293b' }}
-                />
-                <Legend />
-                <Line type="monotone" dataKey="generated" name="Generated kWh" stroke="#2563eb" strokeWidth={2} dot={{ fill: '#2563eb' }} />
-                <Line type="monotone" dataKey="expected" name="Expected kWh" stroke="#0f172a" strokeDasharray="5 5" strokeWidth={2} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="mb-4 flex items-end justify-between gap-3">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">AI health analysis</p>
-                <h2 className="text-lg font-semibold text-slate-900">Healthy or Non-Healthy</h2>
-              </div>
-              <span className={`rounded-full px-3 py-1 text-xs font-semibold ${aiHealthStatus === 'Healthy' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
-                {aiHealthStatus}
-              </span>
-            </div>
-
-            <div className="space-y-3">
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-slate-600">AI verdict</span>
-                  <span className="text-lg font-semibold text-slate-900">{aiHealthStatus}</span>
-                </div>
-                <p className="mt-2 text-sm text-slate-600">
-                  The model compares solar output, sensor drift, confidence, and dust level against the normal operating band.
-                </p>
-              </div>
-
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                <p className="text-sm font-medium text-slate-600">Why</p>
-                <ul className="mt-2 space-y-2 text-sm text-slate-700">
-                  {aiHealthReasons.length > 0 ? aiHealthReasons.map(reason => <li key={reason}>• {reason}</li>) : <li>• Output, drift, and confidence all remain within the normal range.</li>}
-                </ul>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-xs font-medium text-slate-500">Generated today</p>
-                  <p className="mt-1 text-2xl font-semibold text-slate-900">{solarEnergyHistory[solarEnergyHistory.length - 1].generated} kWh</p>
-                </div>
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-xs font-medium text-slate-500">Expected today</p>
-                  <p className="mt-1 text-2xl font-semibold text-slate-900">{solarEnergyHistory[solarEnergyHistory.length - 1].expected} kWh</p>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
 
         {/* Operation Statistics */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-semibold uppercase text-slate-500">Total Readings</p>
+            <p className="text-xs font-semibold uppercase text-slate-500">Total Cleanings</p>
             <p className="mt-2 text-3xl font-bold text-slate-900">{operationStats.totalCleanings}</p>
             <p className="mt-1 text-xs text-slate-500">Since deployment</p>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-semibold uppercase text-slate-500">Avg Latency</p>
+            <p className="text-xs font-semibold uppercase text-slate-500">Avg Duration</p>
             <p className="mt-2 text-3xl font-bold text-slate-900">{operationStats.avgDuration}</p>
-            <p className="mt-1 text-xs text-slate-500">Per sensor packet</p>
+            <p className="mt-1 text-xs text-slate-500">Per cleaning cycle</p>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-semibold uppercase text-slate-500">Avg Signal</p>
+            <p className="text-xs font-semibold uppercase text-slate-500">Water Saved</p>
             <p className="mt-2 text-3xl font-bold text-slate-900">{operationStats.avgWaterSaved}</p>
-            <p className="mt-1 text-xs text-slate-500">Across active channels</p>
+            <p className="mt-1 text-xs text-slate-500">vs manual cleaning</p>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-semibold uppercase text-slate-500">Gateway Uptime</p>
+            <p className="text-xs font-semibold uppercase text-slate-500">System Uptime</p>
             <p className="mt-2 text-3xl font-bold text-slate-900">{operationStats.uptime}</p>
             <p className="mt-1 text-xs text-slate-500">Operational time</p>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-semibold uppercase text-slate-500">Alerts Blocked</p>
+            <p className="text-xs font-semibold uppercase text-slate-500">Cost Saved</p>
             <p className="mt-2 text-3xl font-bold text-blue-700">{operationStats.costSaved}</p>
             <p className="mt-1 text-xs text-slate-500">Total savings</p>
           </div>
@@ -490,7 +347,7 @@ export default function Home() {
         {/* Historical Charts */}
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="mb-4 text-lg font-semibold text-slate-900">Daily Gateway Uptime</h2>
+            <h2 className="mb-4 text-lg font-semibold text-slate-900">Weekly Water Usage</h2>
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={waterUsageHistory}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -499,34 +356,32 @@ export default function Home() {
                 <Tooltip 
                   contentStyle={{ backgroundColor: '#f1f5f9', border: '1px solid #cbd5e1' }}
                   labelStyle={{ color: '#1e293b' }}
-                  formatter={(value) => `${value}%`}
+                  formatter={(value) => `${value}L`}
                 />
-                <Bar dataKey="usage" name="Gateway Uptime" fill="#3b82f6" />
+                <Bar dataKey="usage" fill="#3b82f6" />
               </BarChart>
             </ResponsiveContainer>
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="mb-4 text-lg font-semibold text-slate-900">Recent Sensor Events</h2>
+            <h2 className="mb-4 text-lg font-semibold text-slate-900">Recent Cleaning Operations</h2>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-200">
                     <th className="px-4 py-2 text-left font-semibold text-slate-600">Time</th>
-                    <th className="px-4 py-2 text-left font-semibold text-slate-600">Sensor</th>
-                    <th className="px-4 py-2 text-left font-semibold text-slate-600">Reading</th>
-                    <th className="px-4 py-2 text-left font-semibold text-slate-600">Drift</th>
-                    <th className="px-4 py-2 text-left font-semibold text-slate-600">Status</th>
+                    <th className="px-4 py-2 text-left font-semibold text-slate-600">Duration</th>
+                    <th className="px-4 py-2 text-left font-semibold text-slate-600">Water</th>
+                    <th className="px-4 py-2 text-left font-semibold text-slate-600">Efficiency</th>
                   </tr>
                 </thead>
                 <tbody>
                   {cleaningHistory.map((record) => (
                     <tr key={record.id} className="border-b border-slate-100">
-                      <td className="px-4 py-2 font-medium text-slate-900">{record.time}</td>
-                      <td className="px-4 py-2 text-slate-600">{record.sensor}</td>
-                      <td className="px-4 py-2 text-slate-600">{record.reading}</td>
-                      <td className="px-4 py-2 font-semibold text-slate-900">{record.drift}</td>
-                      <td className="px-4 py-2 text-slate-600">{record.status}</td>
+                      <td className="px-4 py-2 text-slate-900 font-medium">{record.time}</td>
+                      <td className="px-4 py-2 text-slate-600">{record.duration}</td>
+                      <td className="px-4 py-2 text-slate-600">{record.water}</td>
+                      <td className="px-4 py-2 text-slate-900 font-semibold">{record.efficiency}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -538,8 +393,8 @@ export default function Home() {
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Live telemetry board</p>
-              <h2 className="text-lg font-semibold text-slate-900">Ten sensor features in one demo flow</h2>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Live story board</p>
+              <h2 className="text-lg font-semibold text-slate-900">Ten advanced features in one demo flow</h2>
             </div>
             <p className="text-sm text-slate-600">Active step: {activeStep} of 10</p>
           </div>
@@ -561,8 +416,8 @@ export default function Home() {
                   <p className="mt-1 text-xs leading-5 text-slate-600">{feature.description}</p>
                   <div className="mt-2">
                     <p className="text-lg font-semibold text-slate-900">
-                      {typeof metricValue === 'boolean' ? (metricValue ? 'Enabled' : 'Disabled') : metricValue}
-                      {feature.keyMetric === 'flowAngle' ? '°' : feature.keyMetric === 'agentDose' ? ' Hz' : feature.keyMetric === 'waterRate' ? ' V' : feature.keyMetric === 'coatingRate' ? ' mA' : feature.keyMetric === 'dustLevel' ? ' dB' : feature.keyMetric === 'thermalSpotsDetected' ? ' events' : feature.keyMetric === 'maintenanceSaving' || feature.keyMetric === 'sensorConfidence' || feature.keyMetric === 'coverage' || feature.keyMetric === 'efficiency' || feature.keyMetric === 'lifespanIndex' || feature.keyMetric === 'predictiveAccuracy' || feature.keyMetric === 'scadaIntegration' ? '%' : ''}
+                      {typeof metricValue === 'boolean' ? (metricValue ? '✓' : '−') : metricValue}
+                      {feature.keyMetric === 'flowAngle' ? '°' : feature.keyMetric === 'maintenanceSaving' ? '%' : feature.keyMetric === 'agentDose' ? ' mL/L' : feature.keyMetric === 'sensorConfidence' || feature.keyMetric === 'coverage' || feature.keyMetric === 'efficiency' || feature.keyMetric === 'lifespanIndex' || feature.keyMetric === 'predictiveAccuracy' || feature.keyMetric === 'scadaIntegration' ? '%' : ''}
                     </p>
                   </div>
                 </div>
@@ -573,7 +428,7 @@ export default function Home() {
 
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-slate-900">Sensor Health Score</h2>
+            <h2 className="text-lg font-semibold text-slate-900">System Health Score</h2>
             <ResponsiveContainer width="100%" height={250}>
               <PieChart>
                 <Pie
@@ -598,29 +453,29 @@ export default function Home() {
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-slate-900">Edge Gateway Control</h2>
+            <h2 className="text-lg font-semibold text-slate-900">AI Agent Control</h2>
             <div className="mt-4 space-y-3">
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-slate-600">Sampling Rate</span>
-                  <span className="text-lg font-semibold text-slate-900">{panel.agentDose} Hz</span>
+                  <span className="text-sm font-medium text-slate-600">Water Flow Rate</span>
+                  <span className="text-lg font-semibold text-slate-900">{panel.waterRate} L/h</span>
                 </div>
               </div>
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-slate-600">Supply Voltage</span>
-                  <span className="text-lg font-semibold text-slate-900">{panel.waterRate} V</span>
+                  <span className="text-sm font-medium text-slate-600">Agent Dose Ratio</span>
+                  <span className="text-lg font-semibold text-slate-900">{panel.agentDose} mL/L</span>
                 </div>
               </div>
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-slate-600">Drive Current</span>
-                  <span className="text-lg font-semibold text-slate-900">{panel.coatingRate} mA</span>
+                  <span className="text-sm font-medium text-slate-600">Coating Application</span>
+                  <span className="text-lg font-semibold text-slate-900">{panel.coatingRate} mL/L</span>
                 </div>
               </div>
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-slate-600">Alignment Angle</span>
+                  <span className="text-sm font-medium text-slate-600">Flow Angle</span>
                   <span className="text-lg font-semibold text-slate-900">{panel.flowAngle}°</span>
                 </div>
               </div>
@@ -628,29 +483,29 @@ export default function Home() {
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-slate-900">Predictive Diagnostics</h2>
+            <h2 className="text-lg font-semibold text-slate-900">Predictive Analytics</h2>
             <div className="mt-4 space-y-3">
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-slate-600">Detection Accuracy</span>
+                  <span className="text-sm font-medium text-slate-600">Scheduling Accuracy</span>
                   <span className="text-lg font-semibold text-slate-900">{panel.predictiveAccuracy}%</span>
                 </div>
               </div>
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-slate-600">Alarm State</span>
-                  <span className="text-lg font-semibold text-slate-900">{panel.maintenanceAlertReady ? 'Active' : 'Normal'}</span>
+                  <span className="text-sm font-medium text-slate-600">Maintenance Alert</span>
+                  <span className="text-lg font-semibold text-slate-900">{panel.maintenanceAlertReady ? '🔴 Active' : '🟢 Normal'}</span>
                 </div>
               </div>
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-slate-600">Thermal Events</span>
+                  <span className="text-sm font-medium text-slate-600">Thermal Faults</span>
                   <span className="text-lg font-semibold text-slate-900">{panel.thermalSpotsDetected} detected</span>
                 </div>
               </div>
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-slate-600">Gateway Uptime</span>
+                  <span className="text-sm font-medium text-slate-600">SCADA Uptime</span>
                   <span className="text-lg font-semibold text-slate-900">{panel.scadaIntegration}%</span>
                 </div>
               </div>
@@ -660,7 +515,7 @@ export default function Home() {
 
         {/* Maintenance Alerts */}
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-lg font-semibold text-slate-900">Sensor Alerts</h2>
+          <h2 className="mb-4 text-lg font-semibold text-slate-900">Predictive Maintenance Alerts</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -695,11 +550,11 @@ export default function Home() {
 
         <div className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-slate-900">Sensor Network Overview</h2>
+            <h2 className="text-lg font-semibold text-slate-900">Distribution Overview</h2>
             <div className="mt-5 space-y-4">
               <div>
                 <div className="mb-2 flex items-center justify-between text-sm text-slate-600">
-                  <span>Sensor coverage</span>
+                  <span>Flow coverage</span>
                   <span>{panel.coverage}%</span>
                 </div>
                 <div className="h-2 rounded-full bg-slate-200">
@@ -709,7 +564,7 @@ export default function Home() {
 
               <div>
                 <div className="mb-2 flex items-center justify-between text-sm text-slate-600">
-                  <span>Signal threshold</span>
+                  <span>Efficiency threshold</span>
                   <span>{panel.threshold}%</span>
                 </div>
                 <div className="h-2 rounded-full bg-slate-200">
@@ -719,12 +574,12 @@ export default function Home() {
 
               <div className="grid gap-3 sm:grid-cols-3">
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-xs font-medium text-slate-500">Sampling rate</p>
-                  <p className="mt-1 text-xl font-semibold text-slate-900">{panel.agentDose} Hz</p>
+                  <p className="text-xs font-medium text-slate-500">Agent dose</p>
+                  <p className="mt-1 text-xl font-semibold text-slate-900">{panel.agentDose} mL/L</p>
                 </div>
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-xs font-medium text-slate-500">Drive current</p>
-                  <p className="mt-1 text-xl font-semibold text-slate-900">{panel.coatingRate} mA</p>
+                  <p className="text-xs font-medium text-slate-500">Coating rate</p>
+                  <p className="mt-1 text-xl font-semibold text-slate-900">{panel.coatingRate} mL/L</p>
                 </div>
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                   <p className="text-xs font-medium text-slate-500">Sensor confidence</p>
@@ -734,13 +589,13 @@ export default function Home() {
 
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                 <div className="flex items-center justify-between text-sm text-slate-600">
-                  <span>Sensor alignment range</span>
+                  <span>Panel angle range</span>
                   <span>0° - 90°</span>
                 </div>
                 <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
                   <span>0°</span>
                   <div className="relative h-10 flex-1 overflow-hidden rounded-full border border-slate-200 bg-white">
-                    <div className="absolute inset-0 bg-linear-to-r from-slate-200 via-blue-100 to-slate-200 opacity-90" />
+                    <div className="absolute inset-0 bg-gradient-to-r from-slate-200 via-blue-100 to-slate-200 opacity-90" />
                     <div
                       className="absolute left-0 top-1/2 h-px w-full -translate-y-1/2 bg-blue-700"
                       style={{ transform: `translateY(-50%) rotate(${Math.min(90, panel.flowAngle)}deg)` }}
@@ -749,128 +604,42 @@ export default function Home() {
                   <span>90°</span>
                 </div>
                 <p className="mt-3 text-sm text-slate-600">
-                  Curved sensor geometry keeps readings stable and evenly distributed across the panel surface.
+                  Curved-flow geometry keeps the fluid low-pressure and evenly spread across the panel surface.
                 </p>
               </div>
             </div>
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-slate-900">Sensor Snapshot</h2>
+            <h2 className="text-lg font-semibold text-slate-900">Demo Snapshot</h2>
             <div className="mt-4 space-y-3">
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                 <p className="text-xs font-medium text-slate-500">Current status</p>
                 <p className="mt-1 text-sm font-semibold text-slate-900">{demoStatus}</p>
               </div>
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                <p className="text-xs font-medium text-slate-500">Noise floor</p>
-                <p className="mt-1 text-sm font-semibold text-slate-900">{panel.dustLevel} dB</p>
+                <p className="text-xs font-medium text-slate-500">Dust accumulation</p>
+                <p className="mt-1 text-sm font-semibold text-slate-900">{panel.dustLevel}%</p>
               </div>
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                <p className="text-xs font-medium text-slate-500">Interference level</p>
+                <p className="text-xs font-medium text-slate-500">Weather noise separation</p>
                 <p className="mt-1 text-sm font-semibold text-slate-900">{panel.weatherNoise}%</p>
               </div>
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                <p className="text-xs font-medium text-slate-500">Power reduction</p>
-                <p className="mt-1 text-sm font-semibold text-slate-900">Up to {panel.maintenanceSaving}% lower draw</p>
+                <p className="text-xs font-medium text-slate-500">Maintenance reduction</p>
+                <p className="mt-1 text-sm font-semibold text-slate-900">Up to {panel.maintenanceSaving}% lower cost</p>
               </div>
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                <p className="text-xs font-medium text-slate-500">Device health</p>
+                <p className="text-xs font-medium text-slate-500">Lifespan index</p>
                 <p className="mt-1 text-sm font-semibold text-slate-900">{panel.lifespanIndex}%</p>
               </div>
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                <p className="text-xs font-medium text-slate-500">Water cycle recommendation</p>
-                <p className={`mt-1 text-sm font-semibold ${shouldInitiateWaterCycle ? 'text-rose-700' : 'text-emerald-700'}`}>
-                  {shouldInitiateWaterCycle ? 'Initiate water cycle' : 'No water cycle needed'}
-                </p>
-                <p className="mt-1 text-xs text-slate-500">
-                  {shouldInitiateWaterCycle ? 'History shows a dirty pattern or low generation.' : 'History stays within the normal range.'}
-                </p>
-              </div>
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                <p className="text-xs font-medium text-slate-500">Dirty sensor detection</p>
-                <p className="mt-1 text-sm font-semibold text-slate-900">{panel.dustLevel >= 12 ? 'Cleaning required' : 'Normal'}</p>
-              </div>
-              <button
-                onClick={runCleaningCycle}
-                disabled={isCleaningCycleRunning}
-                className="w-full rounded-lg border border-blue-700 bg-blue-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-              >
-                {isCleaningCycleRunning ? 'Water cycle running...' : 'Initiate Water Cycle'}
-              </button>
             </div>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-4 flex items-end justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">History-based decision</p>
-              <h2 className="text-lg font-semibold text-slate-900">Water Cycle Analysis</h2>
-            </div>
-            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${shouldInitiateWaterCycle ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
-              {shouldInitiateWaterCycle ? 'Yes, trigger now' : 'No trigger needed'}
-            </span>
-          </div>
-          <div className="grid gap-3 lg:grid-cols-3">
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-medium text-slate-500">3-day solar average</p>
-              <p className="mt-1 text-2xl font-semibold text-slate-900">{recentSolarAverage} kWh</p>
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-medium text-slate-500">3-day expected average</p>
-              <p className="mt-1 text-2xl font-semibold text-slate-900">{recentExpectedAverage} kWh</p>
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-medium text-slate-500">Reason summary</p>
-              <p className="mt-1 text-sm font-semibold text-slate-900">
-                {shouldInitiateWaterCycle ? 'History shows lower generation and dirty-sensor patterns.' : 'History is stable, so water cycle can wait.'}
-              </p>
-            </div>
-          </div>
-          <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
-            <p className="text-sm font-medium text-slate-600">Why the model decided this</p>
-            <ul className="mt-2 space-y-2 text-sm text-slate-700">
-              {waterCycleReasons.length > 0 ? waterCycleReasons.map(reason => <li key={reason}>• {reason}</li>) : <li>• History does not currently show a dirty or underperforming pattern.</li>}
-            </ul>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-4 flex items-end justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Cleaning history</p>
-              <h2 className="text-lg font-semibold text-slate-900">Dirty Sensor Triggers and Recovery</h2>
-            </div>
-            <p className="text-sm text-slate-600">Auto-clean cycles triggered by anomalies</p>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-200">
-                  <th className="px-4 py-3 text-left font-semibold text-slate-600">Time</th>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-600">Trigger</th>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-600">Result</th>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-600">Delta</th>
-                </tr>
-              </thead>
-              <tbody>
-                {cleaningEvents.map((event) => (
-                  <tr key={event.id} className="border-b border-slate-100">
-                    <td className="px-4 py-3 font-medium text-slate-900">{event.time}</td>
-                    <td className="px-4 py-3 text-slate-600">{event.trigger}</td>
-                    <td className="px-4 py-3 text-slate-600">{event.result}</td>
-                    <td className="px-4 py-3 font-semibold text-slate-900">{event.delta}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
         </div>
 
         {/* Footer */}
         <div className="pb-4 text-center text-xs text-slate-500 sm:text-sm">
-          <p>Frontend-only demo | One button flow | Solar and sensor intelligence dashboard</p>
+          <p>Frontend-only demo | One button flow | Modern monitoring dashboard</p>
         </div>
       </div>
     </main>

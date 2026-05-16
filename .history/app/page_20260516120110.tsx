@@ -309,21 +309,6 @@ export default function Home() {
   ].filter((reason): reason is string => reason !== null);
 
   const solarTrendStatus = solarEnergyHistory[solarEnergyHistory.length - 1].generated >= solarEnergyHistory[solarEnergyHistory.length - 1].expected ? 'Above expected' : 'Below expected';
-  const recentSolarAverage = Math.round(
-    solarEnergyHistory.slice(-3).reduce((sum, point) => sum + point.generated, 0) / 3,
-  );
-  const recentExpectedAverage = Math.round(
-    solarEnergyHistory.slice(-3).reduce((sum, point) => sum + point.expected, 0) / 3,
-  );
-  const recentDirtyEvent = cleaningEvents.find(event => event.trigger.toLowerCase().includes('dirty'));
-  const shouldInitiateWaterCycle = recentSolarAverage < recentExpectedAverage || panel.dustLevel >= 12 || Boolean(recentDirtyEvent);
-  const waterCycleReasons = [
-    recentSolarAverage < recentExpectedAverage
-      ? `Last 3 days generated ${recentExpectedAverage - recentSolarAverage} kWh less than expected on average.`
-      : null,
-    panel.dustLevel >= 12 ? `Dust is at ${panel.dustLevel} dB, which can block panel output and sensor reads.` : null,
-    recentDirtyEvent ? `Recent history already shows a dirty sensor trigger at ${recentDirtyEvent.time}.` : null,
-  ].filter((reason): reason is string => reason !== null);
 
   const COLORS = ['#3b82f6', '#1e40af', '#1e3a8a'];
 
@@ -779,15 +764,6 @@ export default function Home() {
                 <p className="mt-1 text-sm font-semibold text-slate-900">{panel.lifespanIndex}%</p>
               </div>
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                <p className="text-xs font-medium text-slate-500">Water cycle recommendation</p>
-                <p className={`mt-1 text-sm font-semibold ${shouldInitiateWaterCycle ? 'text-rose-700' : 'text-emerald-700'}`}>
-                  {shouldInitiateWaterCycle ? 'Initiate water cycle' : 'No water cycle needed'}
-                </p>
-                <p className="mt-1 text-xs text-slate-500">
-                  {shouldInitiateWaterCycle ? 'History shows a dirty pattern or low generation.' : 'History stays within the normal range.'}
-                </p>
-              </div>
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                 <p className="text-xs font-medium text-slate-500">Dirty sensor detection</p>
                 <p className="mt-1 text-sm font-semibold text-slate-900">{panel.dustLevel >= 12 ? 'Cleaning required' : 'Normal'}</p>
               </div>
@@ -796,43 +772,9 @@ export default function Home() {
                 disabled={isCleaningCycleRunning}
                 className="w-full rounded-lg border border-blue-700 bg-blue-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-400"
               >
-                {isCleaningCycleRunning ? 'Water cycle running...' : 'Initiate Water Cycle'}
+                {isCleaningCycleRunning ? 'Cleaning cycle running...' : 'Initiate Cleaning Cycle'}
               </button>
             </div>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-4 flex items-end justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">History-based decision</p>
-              <h2 className="text-lg font-semibold text-slate-900">Water Cycle Analysis</h2>
-            </div>
-            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${shouldInitiateWaterCycle ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
-              {shouldInitiateWaterCycle ? 'Yes, trigger now' : 'No trigger needed'}
-            </span>
-          </div>
-          <div className="grid gap-3 lg:grid-cols-3">
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-medium text-slate-500">3-day solar average</p>
-              <p className="mt-1 text-2xl font-semibold text-slate-900">{recentSolarAverage} kWh</p>
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-medium text-slate-500">3-day expected average</p>
-              <p className="mt-1 text-2xl font-semibold text-slate-900">{recentExpectedAverage} kWh</p>
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-medium text-slate-500">Reason summary</p>
-              <p className="mt-1 text-sm font-semibold text-slate-900">
-                {shouldInitiateWaterCycle ? 'History shows lower generation and dirty-sensor patterns.' : 'History is stable, so water cycle can wait.'}
-              </p>
-            </div>
-          </div>
-          <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
-            <p className="text-sm font-medium text-slate-600">Why the model decided this</p>
-            <ul className="mt-2 space-y-2 text-sm text-slate-700">
-              {waterCycleReasons.length > 0 ? waterCycleReasons.map(reason => <li key={reason}>• {reason}</li>) : <li>• History does not currently show a dirty or underperforming pattern.</li>}
-            </ul>
           </div>
         </div>
 

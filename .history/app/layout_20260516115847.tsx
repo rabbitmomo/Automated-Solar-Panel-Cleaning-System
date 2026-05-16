@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Solar Sensor Intelligence Dashboard",
-  description: "Frontend-only demo dashboard for solar energy history, sensor health, and AI analysis",
+  title: "Sensor Data Dashboard",
+  description: "Frontend-only demo dashboard for live sensor telemetry, alerts, and history",
 };
 
 export default function RootLayout({
